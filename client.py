@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List, Any
 from contextlib import AsyncExitStack
 
 from mcp import ClientSession, StdioServerParameters
@@ -8,14 +8,21 @@ from mcp.client.stdio import stdio_client
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from openai import  OpenAI
 
 load_dotenv()  # load environment variables from .env
 
 @dataclass
 class AIMessage:
     role: str
-    content: str
+    content: str | list[Any]
 
+    def __to_dict(self) -> dict[str, Any]:
+        return dict(role=self.role, content=self.content)
+
+
+def aimessage_from_dict(data: dict[str, Any]) -> AIMessage:
+    return AIMessage(role=data["role"], content=data["content"])
 
 class MCPClient:
     def __init__(self):
@@ -54,16 +61,9 @@ class MCPClient:
 
     async def process_query(self, query: str) -> str:
         """Process a query using Claude and available tools with preserved context for agentic behavior"""
-        messages = []
-        messages.append({
-            "role": "user",
-            "content": "Please respond with a full list of actions you plan to take based on what I ask. I would like to see the steps you intend to take, and any tools you plan to call."
-        })
-        messages.append(
-            {
-                "role": "user",
-                "content": query
-            })
+        messages:List[AIMessage] = []
+        messages.append(AIMessage(role="user", content="Please respond with a full list of actions you plan to take based on what I ask. I would like to see the steps you intend to take, and any tools you plan to call."))
+        messages.append(AIMessage(role="user", content=query))
 
 
         response = await self.session.list_tools()
@@ -81,7 +81,7 @@ class MCPClient:
             response = self.anthropic.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=1000,
-                messages=messages,
+                messages=map(lambda m: m.__to_dict(), messages),
                 tools=available_tools
             )
 
@@ -92,10 +92,7 @@ class MCPClient:
                     print("<------------------>")
                     print(content.text)
                     print("<------------------>")
-                    messages.append({
-                        "role": "assistant",
-                        "content": content.text
-                    })
+                    messages.append(AIMessage(role="assistant", content=content.text))
 
                 elif content.type == 'tool_use':
                     tool_name = content.name
@@ -106,9 +103,7 @@ class MCPClient:
                     tool_results.append({"call": tool_name, "result": result})
 
                     # Add tool call and result to messages
-                    messages.append({
-                        "role": "assistant",
-                        "content": [
+                    messages.append(AIMessage(role="assistant",content=[
                             {
                             "type": "tool_use",
                             "id": content.id,
@@ -116,19 +111,15 @@ class MCPClient:
                             "input": content.input
                             }
                         ]
-                    })
+                                              ))
 
                     # messages.append(content)
 
-                    messages.append({
-                        "role": "user",
-                        "content": [{
+                    messages.append(AIMessage(role="user",content=[{
                             "type": "tool_result",
                             "tool_use_id": content.id,
                             "content": result.content[0].text
-                        }]
-
-                    })
+                        }]))
 
                     # Break, reevaluate, and continue the loop with updated context
                     break
