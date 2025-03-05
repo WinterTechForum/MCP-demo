@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import dataclass
 from typing import Optional
 from contextlib import AsyncExitStack
 
@@ -9,6 +10,12 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 load_dotenv()  # load environment variables from .env
+
+@dataclass
+class AIMessage:
+    role: str
+    content: str
+
 
 class MCPClient:
     def __init__(self):
@@ -57,6 +64,7 @@ class MCPClient:
                 "role": "user",
                 "content": query
             })
+
 
         response = await self.session.list_tools()
         available_tools = [{
