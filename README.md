@@ -42,6 +42,11 @@ A client implementation for MCP with Anthropic integration.
      ```
    - Replace `your_api_key_here` with your actual Anthropic API key
 
+5. Running:
+   `python client.py weather/weather.py`
+
+   If you have a separate tools server, replace `weather/weather.py` with the location of your server
+
 ## Dependencies
 
 - anthropic (>=0.49.0): Anthropic API client
